@@ -1,68 +1,180 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Storybook
 
-## Available Scripts
+  - Develop components in an isolated environment
+  - Develop without context for greater reusability
+  - Reduces risk of duplicated code.
+  - Create a cohesive inventory of components.
 
-In the project directory, you can run:
+### Getting started
 
-### `npm start`
+```
+$ yarn install
+$ yarn storybook
+```
 
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+# Writing stories
 
-The page will reload if you make edits.<br>
-You will also see any lint errors in the console.
+Storybook is all about writing stories. A story usually contains a single state of one component, almost like a visual test case.
 
-### `npm test`
+> Technically, a story is a function that returns a React element.
 
-Launches the test runner in the interactive watch mode.<br>
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+A Storybook can be comprised of many stories for many components.
 
-### `npm run build`
+## Location for Stories
 
-Builds the app for production to the `build` folder.<br>
-It correctly bundles React in production mode and optimizes the build for the best performance.
+There are no rules for this, but in general, stories are easier to maintain when they are located closer to components.
 
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
+For example, if the UI components live in a directory called: `src/components`, then the stories can be written inside the `src/stories` directory.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The Storybook config file can also be edited to load stories from other folders too.
 
-### `npm run eject`
+## [Writing Stories](https://storybook.js.org/basics/writing-stories/)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+Here is an example of a basic story:
+(Let's assume there's a component called "Button" in `src/components/Button.js`.)
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```js
+// file: src/stories/index.js
 
-Instead, it will copy all the configuration files and the transitive dependencies (Webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+import React from 'react';
+import { storiesOf } from '@storybook/react';
+import { action } from '@storybook/addon-actions';
+import Button from '../components/Button';
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+storiesOf('Button', module)
+  .add('with text', () => <Button onClick={action('clicked')}>Hello Button</Button>)
+  .add('with some emoji', () => (
+    <Button onClick={action('clicked')}>
+      <span role="img" aria-label="so cool">
+        😀 😎 👍 💯
+      </span>
+    </Button>
+  ));
+```
 
-## Learn More
+This uses Storybook's basic API for writing stories. There are official and third party Storybook [addons](/addons/introduction) for more advanced functionality.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Loading stories dynamically
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Sometimes, stories need to be loaded dynamically rather than explicitly in the Storybook config file.
 
-### Code Splitting
+For example, the stories for an app may all be inside the `src/components` directory with the `.stories.js` extension. It is easier to load all the stories automatically like this inside the `.storybook/config.js` file:
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
+```js
+import { configure } from '@storybook/react';
 
-### Analyzing the Bundle Size
+const req = require.context('../src/components', true, /\.stories\.js$/);
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
+function loadStories() {
+  req.keys().forEach(filename => req(filename));
+}
 
-### Making a Progressive Web App
+configure(loadStories, module);
+```
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
+Storybook uses Webpack's [require.context](https://webpack.js.org/guides/dependency-management/#require-context) to load modules dynamically. Take a look at the relevant Webpack [docs](https://webpack.js.org/guides/dependency-management/#require-context) to learn more about how to use `require.context`.
 
-### Advanced Configuration
+The **React Native** packager resolves all the imports at build-time, so it's not possible to load modules dynamically. There is a third party loader  [react-native-storybook-loader](https://github.com/elderfo/react-native-storybook-loader) to automatically generate the import statements for all stories.
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
+## Using Decorators
 
-### Deployment
+A decorator is a way to wrap a story with a common set of components. Here is an example for centering all components:
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
+```js
+import React from 'react';
+import { storiesOf } from '@storybook/react';
+import MyComponent from '../my_component';
 
-### `npm run build` fails to minify
+storiesOf('MyComponent', module)
+  .addDecorator(story => <div style={{ textAlign: 'center' }}>{story()}</div>)
+  .add('without props', () => <MyComponent />)
+  .add('with some props', () => <MyComponent text="The Comp" />);
+```
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+This only applies the decorator to the current set of stories. (In this example, the decorator is added only to the **MyComponent** story group.)
+
+It is possible to apply a decorator **globally** to all the stories. Here is an example of the Storybook config file:
+
+```js
+import React from 'react';
+import { configure, addDecorator } from '@storybook/react';
+
+addDecorator(story => <div style={{ textAlign: 'center' }}>{story()}</div>);
+
+configure(function() {
+  // ...
+}, module);
+```
+
+## Using Markdown
+
+As of storybook 3.3, [Markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) can be used in Storybook by default. Users can import a markdown file which extracts the raw markdown content into a string. The string can then be used in any addon that supports markdown such as notes and info.
+
+```js
+import React from 'react';
+import { storiesOf } from '@storybook/react';
+import MyComponent from './MyComponent';
+import someMarkdownText from './someMarkdownText.md';
+
+storiesOf('Component', module).add('With Markdown', () => <MyComponent />, {
+  notes: { markdown: someMarkdownText },
+});
+```
+
+## Nesting stories
+
+Stories can be organized in a nested structure using "/" as a separator:
+
+```js
+// file: src/stories/index.js
+
+import React from 'react';
+import { storiesOf } from '@storybook/react';
+import Button from '../components/Button';
+
+storiesOf('My App/Buttons/Simple', module).add('with text', () => (
+  <Button onClick={action('clicked')}>Hello Button</Button>
+));
+
+storiesOf('My App/Buttons/Emoji', module).add('with some emoji', () => (
+  <Button onClick={action('clicked')}>
+    <span role="img" aria-label="so cool">
+      😀 😎 👍 💯
+    </span>
+  </Button>
+));
+```
+
+## Generating nesting path based on \_\_dirname
+
+Nesting paths can be programmatically generated with template literals because story names are strings.
+
+One example would be to use `base` from [`paths.macro`](https://github.com/storybooks/paths.macro):
+
+```js
+import React from 'react';
+import base from 'paths.macro';
+
+import { storiesOf } from '@storybook/react';
+
+import BaseButton from '../components/BaseButton';
+
+storiesOf(`Other|${base}/Dirname Example`, module)
+  .add('story 1', () => <BaseButton label="Story 1" />)
+  .add('story 2', () => <BaseButton label="Story 2" />);
+```
+
+_This uses [babel-plugin-macros](https://github.com/kentcdodds/babel-plugin-macros)_.
+
+## Run multiple storybooks
+
+Multiple storybooks can be built for different kinds of stories or components in a single repository by specifying different port numbers in the start scripts:
+
+```json
+{
+  "scripts": {
+    "start-storybook-for-theme": "start-storybook -p 9001 -c .storybook-theme",
+    "start-storybook-for-app": "start-storybook -p 8001 -c .storybook-app"
+  }
+}
+```
